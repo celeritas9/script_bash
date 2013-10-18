@@ -1,4 +1,4 @@
-#Copyright 2013 Devang Shah (Email:devang221129[at]gmail[dot]com)
+#Copyright 2013 Devang Shah {Email:devang221129[at]gmail[dot]com}
 #
 #This program is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ function find_total_available_pages()		#INPUT max_spider,date,yesterdate,edition
 	do
 		#page_num=${pages_to_download[j]}
 		echo "Searching for page $j"
-		I_FILE="http://digitalimages.bhaskar.com/gujarat/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${j}-0.PDF"
+		I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${j}-0.PDF"
 		echo ">>>>>" $I_FILE
 		debug=`wget --spider $I_FILE 2>&1`
 		#echo $debug
@@ -80,13 +80,17 @@ dd=`printf %02d $(( 10#$dd ))`
 mm=`printf %02d $(( 10#$mm ))`
 yyyy=`printf %04d $(( 10#$yyyy ))`
 date=${dd}${mm}${yyyy}
+
 #0- Ahmedabad 1-Baroda 2- Surat 3- Vaapi Valsad 4- Bharuch Narmada
 #Edition name contains the name in the link.
-edition_name=( [0]=AHMEDABAD%20CITY [1]=BCITY [2]=SCI [3]=VALSAD-VAP [4]=NAR )
+edition_name=( [0]=AHMEDABAD%20CITY [1]=BCITY [2]=SCI [3]=VALSAD-VAP [4]=NAR [5]=MUMBAI [6]=SUN [7]=KALASH \
+[8]=DMMAIN [9]=DMNMAIN [10]=JALGAONMAIN [11]=ANAGARMAIN [12]=SOLAPUR)
 #City name corresponding to the edition_name.
-city_names=( [0]=Ahmedabad [1]=Vadodara [2]=Surat [3]=Vapi-Valsad [4]=Bharuch-Narmada )
+city_names=( [0]=Ahmedabad [1]=Vadodara [2]=Surat [3]=Vapi-Valsad [4]=Bharuch-Narmada [5]=Mumbai [6]=Sunday-Bhaskar [7]=Kalash \
+[8]=Aurangabad [9]=Nashik [10]=Jalgaon [11]=Ahmednagar [12]=Solapur)
 ed_len=${#city_names[@]}
-echo "Divya Bhaskar editions are"
+
+echo "Divya Bhaskar editions are [0-7] Gujarati, [8-11] Marathi "
 echo "-------------------------------------------------"
 for (( i=0; i<${ed_len}; i++ ));
 do
@@ -95,23 +99,29 @@ done
 echo "-------------------------------------------------"
 while true 
 do
-	read -p "Enter edition you wish to selec[0-4]: " ed
+	read -p "Enter edition you wish to select[0-12]: " ed
 	#echo "Edition is " $ed
 	case $ed in
-	[01234] )
+	[0-9] | 1[0-2] )
 		echo "Thanks." 
 	break;;
-		* ) echo "Valid choices are from 0 to 4."
+		* ) echo "Valid choices are from 0 to 12."
 	;;
 	esac
 done
+
+#Determine the language of the paper. Editions 0 to 7 are in Gujarati, 8 to 12 are Marathi papers.
+var_language="gujarat"
+if [ ${ed} -ge 8 ] && [ ${ed} -le 12 ]; then
+	var_language="divyamarathi"
+fi
 
 declare -a pages_to_download
 max_spider=100
 total_available_pages=0
 find_total_available_pages
 echo "###############################Total available pages are ${total_available_pages}."
-if [ $total_available_pages -eq 0 ]; then
+if [ ${total_available_pages} -eq 0 ]; then
 	echo "Total pages available for the select edition are 0. Please verify if the pages for the selection exist. Terminating."
 	exit 0;
 fi
@@ -131,7 +141,7 @@ echo "Downloading may take some time depending on your connection speed and numb
 mkdir -p $temp_dir
 for (( i = 0; i < $total_pages; i++ )); do
 	page=`printf %02d $(( 10#${pages_to_download[i]} ))`
-	I_FILE="http://digitalimages.bhaskar.com/gujarat/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${pages_to_download[i]}-0.PDF"
+	I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${pages_to_download[i]}-0.PDF"
 	O_FILE="$temp_dir/${city_names[ed]}_${date}_Page${page}.pdf"
 	#q-quiet, O-output file name specified
 	wget -O $O_FILE $I_FILE
