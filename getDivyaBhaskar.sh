@@ -14,6 +14,58 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #!/bin/bash
+
+##############################################FUNCTIONS
+
+#The below function copies page numbers from a range or sequence into the array.
+#e.g. if pages contains a range, e.g. 2-4 then resulting array will contain values [2,3,4]
+#     if pages contains comma separated values, e.g. 2,4,6 then resulting array will contain values [2,4,6].
+function copy_values_to_array()		#INPUT pages, pages_to_download[]
+{
+	#echo "Function copy_values_to_array called."
+	if [ ! -z "`echo $pages | grep "-"`" ]; then
+		#echo "Pages contain '-'."
+		index_array=(${pages//-/ })
+		start_page=${index_array[0]}
+		end_page=${index_array[1]}
+		total_pages=$(( end_page - start_page + 1 ))
+		#echo "Total pages to download: " $total_pages " , start_page: " $start_page " ,end_page: " $end_page
+		for (( i=start_page,j=0; i<=end_page; i++,j++ ))
+		do
+			pages_to_download[j]=$i
+		#	echo "copied value $i to $j"
+		done
+	fi
+	
+	if [ ! -z "`echo $pages | grep ","`" ]; then
+		#echo "Pages contain ','."
+		pages_to_download=(${pages//,/ })
+	fi
+}
+
+#The below function spiders all the pages for edition_name[ed] and get the maximum count of available pages.
+function find_total_available_pages()		#INPUT max_spider,date,yesterdate,edition_name,ed
+{
+	echo "Going to find total available pages."
+	for (( j = 1 ;  j <= $max_spider;  j++  ));
+	do
+		#page_num=${pages_to_download[j]}
+		echo "Searching for page $j"
+		I_FILE="http://digitalimages.bhaskar.com/gujarat/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${j}-0.PDF"
+		echo ">>>>>" $I_FILE
+		debug=`wget --spider $I_FILE 2>&1`
+		#echo $debug
+		if [ -z "`echo $debug | grep -i "200 OK"`" ]; then
+			echo "Page $page_num does not exist. Breaking now."
+			let j--
+			break
+		fi
+		echo "Page $j exists."
+	done
+	total_available_pages=$j
+}
+
+###############################################START OF EXECUTION
 read -p "----Enter the day (e.g. dd)		:" dd
 read -p "----Enter the month(e.g. mm)		:" mm
 read -p "----Enter the year(e.g. yyyy)		:" yyyy
@@ -49,36 +101,26 @@ do
 	[01234] )
 		echo "Thanks." 
 	break;;
-		* ) echo "Please select the correct numeric serial."
+		* ) echo "Valid choices are from 0 to 4."
 	;;
 	esac
 done
 
-total_pages=0
+declare -a pages_to_download
 max_spider=100
-echo "Checking if pages exists."
-for (( j = 1 ;  j <= $max_spider;  j++  )); do
-	echo "Searching for Page $j"
-	I_FILE="http://digitalimages.bhaskar.com/gujarat/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG$j-0.PDF"
-	echo ">>>>>" $I_FILE
-	debug=`wget --spider $I_FILE 2>&1`
-	echo $debug
-	if [ -z "`echo $debug | grep -i "200 OK"`" ]; then
-		echo "Page $j does not exist. Breaking now."
-		let j--
-		break
-	fi
-	echo "Page $j exists."
-done
-total_pages=$j
-echo "Finished checking pages."
-echo "Total pages are " $total_pages
-
-#If total pages found are 0 then exit the script.
-if [ $total_pages -eq 0 ]; then
-	echo "Total pages available for the selection are 0. Exiting."
+total_available_pages=0
+find_total_available_pages
+echo "###############################Total available pages are ${total_available_pages}."
+if [ $total_available_pages -eq 0 ]; then
+	echo "Total pages available for the select edition are 0. Please verify if the pages for the selection exist. Terminating."
 	exit 0;
 fi
+
+read -p "Enter the pages' range (e.g. 2-4) or individual pages (e.g. 3,4,8) to download: " pages
+copy_values_to_array
+total_pages=${#pages_to_download[@]}
+
+echo "Total pages to download are $total_pages. First page is ${pages_to_download[0]}. Out of the pages specified, invalid pages will not be downloaded."
 
 edition=${city_names[ed]}_${date}
 
@@ -87,9 +129,9 @@ temp_dir="$epaper/${edition}_temp"
 echo "Starting download of individual pages at " $temp_dir
 echo "Downloading may take some time depending on your connection speed and number of pages. Please multitask and utilize your time."
 mkdir -p $temp_dir
-for (( i = 1; i <= $total_pages; i++ )); do
-	page=`printf %02d $(( 10#$i ))`
-	I_FILE="http://digitalimages.bhaskar.com/gujarat/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${i}-0.PDF"
+for (( i = 0; i < $total_pages; i++ )); do
+	page=`printf %02d $(( 10#${pages_to_download[i]} ))`
+	I_FILE="http://digitalimages.bhaskar.com/gujarat/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${pages_to_download[i]}-0.PDF"
 	O_FILE="$temp_dir/${city_names[ed]}_${date}_Page${page}.pdf"
 	#q-quiet, O-output file name specified
 	wget -O $O_FILE $I_FILE
