@@ -35,11 +35,36 @@ function copy_values_to_array()		#INPUT pages, pages_to_download[]
 			pages_to_download[j]=$i
 		#	echo "copied value $i to $j"
 		done
-	fi
-	
-	if [ ! -z "`echo $pages | grep ","`" ]; then
+	elif [ ! -z "`echo $pages | grep ","`" ]; then
 		#echo "Pages contain ','."
 		pages_to_download=(${pages//,/ })
+	else #Single page is entered. Copy the page to the array.
+		pages_to_download[0]=${pages}
+	fi
+}
+
+#The below function identifies the exact edition name for the select city. Default is Error.
+#First it tries to check if ${edition_name[ed]} is valid, if it is then it proceeds with the name for all the pages.
+#If the ${edition_name[ed]} is not valid then it tries to look out for alternate ${alternate_edition_name[ed]}.
+#For either of the valid edition name it sets the global variable exact_edition_name.
+function identify_exact_edition_name()
+{
+	echo "Identifying the exact edition name for ${city_names[ed]}"
+	I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG1-0.PDF"
+	echo ">>>>>" $I_FILE
+	debug=`wget --spider $I_FILE 2>&1`
+	if [ -z "`echo $debug | grep -i "200 OK"`" ]; then
+		echo "Edition name ${edition_name[ed]} is not valid. Trying alternate edition name ${alternate_edition_name[ed]}"
+		I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${alternate_edition_name[ed]}-PG1-0.PDF"
+		echo ">>>>>" $I_FILE
+		debug=`wget --spider $I_FILE 2>&1`
+		if [ -z "`echo $debug | grep -i "200 OK"`" ]; then
+			echo "Edition name ${alternate_edition_name[ed]} is also not valid."
+		else
+			exact_edition_name=${alternate_edition_name[ed]}
+		fi
+	else
+		exact_edition_name=${edition_name[ed]}
 	fi
 }
 
@@ -51,7 +76,7 @@ function find_total_available_pages()		#INPUT max_spider,date,yesterdate,edition
 	do
 		#page_num=${pages_to_download[j]}
 		echo "Searching for page $j"
-		I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${j}-0.PDF"
+		I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${exact_edition_name}-PG${j}-0.PDF"
 		echo ">>>>>" $I_FILE
 		debug=`wget --spider $I_FILE 2>&1`
 		#echo $debug
@@ -84,10 +109,21 @@ date=${dd}${mm}${yyyy}
 #0- Ahmedabad 1-Baroda 2- Surat 3- Vaapi Valsad 4- Bharuch Narmada
 #Edition name contains the name in the link.
 edition_name=( [0]=AHMEDABAD%20CITY [1]=BCITY [2]=SCI [3]=VALSAD-VAP [4]=NAR [5]=MUMBAI [6]=SUN [7]=KALASH \
-[8]=DMMAIN [9]=DMNMAIN [10]=JALGAONMAIN [11]=ANAGARMAIN [12]=SOLAPUR)
+[8]=DMMAIN [9]=DMNMAIN [10]=JALGAONMAIN [11]=ANAGARMAIN [12]=SOLAPUR )
+
+#Alternate possible edition names. For Marathi papers, since 24 April they have changed the names of the edition.
+#e.g. DMMAIN has become AURANGABAD CITY
+#Page 1 of 23rd April 2013 - http://digitalimages.bhaskar.com/divyamarathi/epaperpdf/23042013/22DMMAIN-PG1-0.PDF
+#Page 1 of 24th April 2013 - http://digitalimages.bhaskar.com/divyamarathi/epaperpdf/24042013/23AURANGABAD%20CITY-PG1-0.PDF
+#The same difference holds true for following since 24th April.
+#Jalgaon (JALGAON%20CITY instead of JALGAONMAIN)
+#Ahmednagar (AHMEDNAGAR%20CITY instead of ANAGARMAIN)
+alternate_edition_name=( [0]=AHMEDABAD%20CITY [1]=BCITY [2]=SCI [3]=VALSAD-VAP [4]=NAR [5]=MUMBAI [6]=SUN [7]=KALASH \
+[8]=AURANGABAD%20CITY [9]=NASHIK%20CITY [10]=JALGAON%20CITY [11]=AHMEDNAGAR%20CITY [12]=SOLAPUR )
+
 #City name corresponding to the edition_name.
 city_names=( [0]=Ahmedabad [1]=Vadodara [2]=Surat [3]=Vapi-Valsad [4]=Bharuch-Narmada [5]=Mumbai [6]=Sunday-Bhaskar [7]=Kalash \
-[8]=Aurangabad [9]=Nashik [10]=Jalgaon [11]=Ahmednagar [12]=Solapur)
+[8]=Aurangabad [9]=Nashik [10]=Jalgaon [11]=Ahmednagar [12]=Solapur )
 ed_len=${#city_names[@]}
 
 echo "Divya Bhaskar editions are [0-7] Gujarati, [8-11] Marathi "
@@ -118,12 +154,21 @@ fi
 
 declare -a pages_to_download
 max_spider=100
+exact_edition_name="Error"
 total_available_pages=0
+
+identify_exact_edition_name
+echo "###############################Exact edition name is ${exact_edition_name}."
+if [ "${exact_edition_name}" == "Error" ]; then
+	echo "No valid edition for ${city_names[ed]} found. Terminating."
+	exit 100;
+fi
+
 find_total_available_pages
 echo "###############################Total available pages are ${total_available_pages}."
 if [ ${total_available_pages} -eq 0 ]; then
 	echo "Total pages available for the select edition are 0. Please verify if the pages for the selection exist. Terminating."
-	exit 0;
+	exit 101;
 fi
 
 read -p "Enter the pages' range (e.g. 2-4) or individual pages (e.g. 3,4,8) to download: " pages
@@ -132,7 +177,7 @@ total_pages=${#pages_to_download[@]}
 
 echo "Total pages to download are $total_pages. First page is ${pages_to_download[0]}. Out of the pages specified, invalid pages will not be downloaded."
 
-edition=${city_names[ed]}_${date}
+edition=${city_names[ed]}_${date}_"Pages_${pages_to_download[0]}-${pages_to_download[ (( $total_pages-1 )) ]}"
 
 #Download all the pdf pages and store in a temp directory.
 temp_dir="$epaper/${edition}_temp"
@@ -141,7 +186,7 @@ echo "Downloading may take some time depending on your connection speed and numb
 mkdir -p $temp_dir
 for (( i = 0; i < $total_pages; i++ )); do
 	page=`printf %02d $(( 10#${pages_to_download[i]} ))`
-	I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${edition_name[ed]}-PG${pages_to_download[i]}-0.PDF"
+	I_FILE="http://digitalimages.bhaskar.com/${var_language}/epaperpdf/$date/${yesterdate}${exact_edition_name}-PG${pages_to_download[i]}-0.PDF"
 	O_FILE="$temp_dir/${city_names[ed]}_${date}_Page${page}.pdf"
 	#q-quiet, O-output file name specified
 	wget -O $O_FILE $I_FILE
@@ -159,4 +204,4 @@ echo "File copied to " $epaper
 echo "Removing temporary files/folders " $temp_dir
 rm -rf $temp_dir
 
-exit
+exit 0
