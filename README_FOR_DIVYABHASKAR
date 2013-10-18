@@ -1,0 +1,30 @@
+Readme for DivyaBhaskar v 0.1.
+
+Feature:
+Download DivyaBhaskar Gujarati e-newspaper in PDF format of {AHMEDABAD, SURAT, VADODARA} cities.
+
+Usage:
+./getDivyaBhaskar_v0.1.sh
+
+Required Applications:
+1. Cygwin with wget, gs packages installed. (Refer http://karve.in/?p=635).
+
+Known Limitations:
+1. Pages are not sequential in the final PDF file.
+
+Changelog - getDivyaBhaskar_v0.1_stable Date: 14/04/2013
+Fixes:
+1. Improved logs of wget. Removed quiet operation of wget. Displayed download bar, download speed and time taken for download.
+2. Resolved the issue of not able to download paper on specific dates because, the name of the page on the server contained last date (calculated from entered date) as the prefix. And it was accidentally hardcoded.
+3. Removed temp files and folders.
+
+Changelog - getDivyaBhaskar_v1.0 Date: 14 April 2013
+1. Added support for downloading pages manually.
+
+Changelog - getDivyaBhaskar_v1.1 Date: 21 April 2013
+1. Added support for downloading marathi papers as well.
+2. Added support for downloading Kalash and Sunday Bhaskar.
+
+Changelog - getDivyaBhaskar_v1.2 Date: 28 April 2013
+1. Fixed broken edition names for few(Jalgaon, Aurangabad and Ahmednagar) cities.
+2. Improved final pdf file name. Included page numbers that are contained in the pdf file as part of the file name.
